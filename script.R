@@ -60,22 +60,22 @@ train$AVERAGE_CLOUDINESS <- NULL
 train$LUMINOSITY <- ifelse(train$LUMINOSITY == "LIGHT", 0,
                     ifelse(train$LUMINOSITY == "LOW_LIGHT", 1, 2))
 
-#Calculate correlation between features and filter columns with correlation higher then .5
-correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
-for(j in 2:ncol(correlation)){
-  if(length(which(correlation[,j] > 0.5 | correlation[,j] < -0.5)) > 0){
-    correlation[,j] <- NULL
-  }
-}
-
-#Save the features names with low correlation
-correlationColumns <- as.vector(names(correlation[,2:ncol(correlation)]))
-
-#Create the new data frame without correlation and the objective feature
-tmp <- train$AVERAGE_SPEED_DIFF
-train <- train[,correlationColumns]
-train$AVERAGE_SPEED_DIFF <- tmp
-rm(tmp)
+# #Calculate correlation between features and filter columns with correlation higher then .5
+# correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
+# for(j in 2:ncol(correlation)){
+#   if(length(which(correlation[,j] > 0.5 | correlation[,j] < -0.5)) > 0){
+#     correlation[,j] <- NULL
+#   }
+# }
+# 
+# #Save the features names with low correlation
+# correlationColumns <- as.vector(names(correlation[,2:ncol(correlation)]))
+# 
+# #Create the new data frame without correlation and the objective feature
+# tmp <- train$AVERAGE_SPEED_DIFF
+# train <- train[,correlationColumns]
+# train$AVERAGE_SPEED_DIFF <- tmp
+# rm(tmp)
 
 ###################################################################################################################################################
 
@@ -95,25 +95,28 @@ splited_data <- h2o.splitFrame(data = train,
                                ratios = c(0.7,0.15),
                                destination_frames = c("TRAIN","VALID","TEST"),
                                seed = 1234)
+valid <- splited_data[[2]]
 
 #Set Predictors and Response
-PREDICTORS <- c("AVERAGE_FREE_FLOW_SPEED", "AVERAGE_FREE_FLOW_TIME", "AVERAGE_TEMPERATURE", 
-                "AVERAGE_ATMOSP_PRESSURE", "AVERAGE_WIND_SPEED", "AVERAGE_RAIN", "Time", 
-                "Date", "AVERAGE_SPEED_DIFF")
+PREDICTORS <- c("AVERAGE_SPEED_DIFF", "AVERAGE_FREE_FLOW_SPEED", "AVERAGE_TIME_DIFF", "AVERAGE_FREE_FLOW_TIME", 
+                "LUMINOSITY", "AVERAGE_TEMPERATURE", "AVERAGE_ATMOSP_PRESSURE", "AVERAGE_HUMIDITY", "AVERAGE_WIND_SPEED", 
+                "AVERAGE_RAIN", "Time", "Date")
 
 RESPONSE <- c("AVERAGE_SPEED_DIFF")
 
 
 # Grid (Hyperparameter) Search
 gbm_params <- list(
-  ntrees = c(1100),
-  max_depth = c(9,10),
+  ntrees = seq(500,700,20),
+  max_depth = seq(5,20,1),
   learn_rate = c(0.01,0.02),
   min_rows = c(1,2,5,10),
   sample_rate = seq(0.9,0.99,0.01),
   nbins = c(16,20,24,75),
   col_sample_rate_per_tree = c(0.7,0.8),
-  col_sample_rate = c(0.6,0.7,0.8)
+  col_sample_rate = c(0.6,0.7,0.8),
+  distribution = "multinomial",
+  fold_assignment = "AUTO"
 )
 
 # Early Stopping
@@ -122,18 +125,18 @@ search_criteria <- list(
   stopping_metric = "AUTO",
   stopping_tolerance = 0.001,
   stopping_rounds = 10,
-  max_models = 7
+  max_models = 10
 )
 
 # Gradient Boosting Machine algorithm with grid search
-age_gbm_grid <- h2o.grid(
+traffic_gbm_grid <- h2o.grid(
   algorithm = "gbm",
-  grid_id = "age_gbm_grid",
+  grid_id = "traffic_gbm_grid",
   x = PREDICTORS,
   y = RESPONSE,
   training_frame = h2o.getFrame("TRAIN"),
   validation_frame= h2o.getFrame("VALID"),
-  nfolds = 0,
+  nfolds = 5,
   seed = 99,
   hyper_params = gbm_params,
   search_criteria = search_criteria,
@@ -142,3 +145,13 @@ age_gbm_grid <- h2o.grid(
   stopping_rounds = 4,
   score_tree_interval = 10
 )
+
+
+# Get the grid results, sorted by validation AUC
+gbm_grid_performance <- h2o.getGrid(grid_id = "traffic_gbm_grid",
+                             sort_by = "accuracy",
+                             decreasing = TRUE)
+print(gbm_grid_performance)
+
+
+
