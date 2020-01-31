@@ -60,24 +60,48 @@ train$AVERAGE_CLOUDINESS <- NULL
 train$LUMINOSITY <- ifelse(train$LUMINOSITY == "LIGHT", 0,
                     ifelse(train$LUMINOSITY == "LOW_LIGHT", 1, 2))
 
-# #Calculate correlation between features and filter columns with correlation higher then .5
-# correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
-# for(j in 2:ncol(correlation)){
-#   if(length(which(correlation[,j] > 0.5 | correlation[,j] < -0.5)) > 0){
-#     correlation[,j] <- NULL
-#   }
-# }
-# 
-# #Save the features names with low correlation
-# correlationColumns <- as.vector(names(correlation[,2:ncol(correlation)]))
-# 
-# #Create the new data frame without correlation and the objective feature
-# tmp <- train$AVERAGE_SPEED_DIFF
-# train <- train[,correlationColumns]
-# train$AVERAGE_SPEED_DIFF <- tmp
-# rm(tmp)
+#Add column weekend, where values can be 0 or 1
+train$Weekend <- ifelse(train$Date == 6, 1, 
+                  ifelse(train$Date == 7, 1, 0))
 
-###################################################################################################################################################
+#Creation of column PartsOfDay
+#Morning - 5 to 12 - 0
+#Afternoon - 13 to 17 - 1
+#Evening - 18 to 21 - 2
+#Night - 22 to 23 and 0 to 4 - 3
+train$PartsOfDay <- ifelse(between(train$Time, 5, 12), 0, 
+                    ifelse(between(train$Time, 13, 17), 1,
+                    ifelse(between(train$Time, 18, 21), 2,
+                    ifelse(between(train$Time, 22, 23), 3, 3))))
+
+####################################################### - Correlatio Filtering - ################################################################
+
+#Calculate correlation between features
+#correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
+#Removing the features Humidity and Luminosity, because they show the most correlation with other features
+#train$LUMINOSITY <- NULL
+#train$AVERAGE_HUMIDITY <- NULL
+
+#################################################################################################################################################
+########################################################### - Skewness Filtering - ##############################################################
+
+
+#################################################################################################################################################
+############################################################ - Outlier Filtering - ##############################################################
+
+#After testing, this will remove all the rows
+# for(i in 2:ncol(train)){
+#   outlier <- boxplot(train[,i], plot = FALSE)$out
+#   train <- train[-which(train[,i] %in% outlier),]
+# }
+
+
+#################################################################################################################################################
+
+##################################################################################################################################################
+
+
+
 
 ############################################################### - Gradient Boosting Machine - #####################################################
 
@@ -95,19 +119,18 @@ splited_data <- h2o.splitFrame(data = train,
                                ratios = c(0.7,0.15),
                                destination_frames = c("TRAIN","VALID","TEST"),
                                seed = 1234)
-valid <- splited_data[[2]]
 
 #Set Predictors and Response
-PREDICTORS <- c("AVERAGE_SPEED_DIFF", "AVERAGE_FREE_FLOW_SPEED", "AVERAGE_TIME_DIFF", "AVERAGE_FREE_FLOW_TIME", 
-                "LUMINOSITY", "AVERAGE_TEMPERATURE", "AVERAGE_ATMOSP_PRESSURE", "AVERAGE_HUMIDITY", "AVERAGE_WIND_SPEED", 
-                "AVERAGE_RAIN", "Time", "Date")
+PREDICTORS <- c("AVERAGE_SPEED_DIFF","AVERAGE_FREE_FLOW_SPEED","AVERAGE_TIME_DIFF",
+                "AVERAGE_FREE_FLOW_TIME","AVERAGE_TEMPERATURE","AVERAGE_ATMOSP_PRESSURE",
+                "AVERAGE_WIND_SPEED","AVERAGE_RAIN","Time","Date","Weekend","PartsOfDay", "LUMINOSITY", "AVERAGE_HUMIDITY")
 
 RESPONSE <- c("AVERAGE_SPEED_DIFF")
 
 
 # Grid (Hyperparameter) Search
 gbm_params <- list(
-  ntrees = seq(500,700,20),
+  ntrees = seq(500,950,50),
   max_depth = seq(5,20,1),
   learn_rate = c(0.01,0.02),
   min_rows = c(1,2,5,10),
