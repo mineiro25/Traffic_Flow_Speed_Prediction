@@ -4,6 +4,7 @@ library(mlbench)
 library(lubridate)
 library(corrr)
 library(h2o)
+library(moments)
 
 ################################################ - Import Data - ##################################################################################
 
@@ -77,31 +78,39 @@ train$PartsOfDay <- ifelse(between(train$Time, 5, 12), 0,
 ####################################################### - Correlatio Filtering - ################################################################
 
 #Calculate correlation between features
-#correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
+correlation <- as.data.frame(correlate(train[,2:ncol(train)], quiet = TRUE))
 #Removing the features Humidity and Luminosity, because they show the most correlation with other features
-#train$LUMINOSITY <- NULL
-#train$AVERAGE_HUMIDITY <- NULL
+train$LUMINOSITY <- NULL
+train$AVERAGE_HUMIDITY <- NULL
 
 #################################################################################################################################################
 ########################################################### - Skewness Filtering - ##############################################################
 
+#Store the indexes to be removed
+toRemove <- c()
+j <- 1
+for(i in 2:ncol(train)){
+  varSkew <- skewness(train[,i])
+  if(abs(varSkew) > 0.5){
+    toRemove[j] <- i
+    j <- j+1
+  }
+}
+#Removed the indexes
+train[,toRemove] <- NULL
 
 #################################################################################################################################################
 ############################################################ - Outlier Filtering - ##############################################################
 
-#After testing, this will remove all the rows
-# for(i in 2:ncol(train)){
-#   outlier <- boxplot(train[,i], plot = FALSE)$out
-#   train <- train[-which(train[,i] %in% outlier),]
-# }
-
+#Replace outliers with the median of each feature
+for(i in 2:ncol(train)){
+  outlier <- boxplot(train[,i], plot = FALSE)$out
+  train[which(train[,i] %in% outlier),i] <- median(train[,i])
+}
 
 #################################################################################################################################################
 
 ##################################################################################################################################################
-
-
-
 
 ############################################################### - Gradient Boosting Machine - #####################################################
 
@@ -121,17 +130,16 @@ splited_data <- h2o.splitFrame(data = train,
                                seed = 1234)
 
 #Set Predictors and Response
-PREDICTORS <- c("AVERAGE_SPEED_DIFF","AVERAGE_FREE_FLOW_SPEED","AVERAGE_TIME_DIFF",
-                "AVERAGE_FREE_FLOW_TIME","AVERAGE_TEMPERATURE","AVERAGE_ATMOSP_PRESSURE",
-                "AVERAGE_WIND_SPEED","AVERAGE_RAIN","Time","Date","Weekend","PartsOfDay", "LUMINOSITY", "AVERAGE_HUMIDITY")
+PREDICTORS <- c("AVERAGE_SPEED_DIFF","AVERAGE_FREE_FLOW_SPEED","AVERAGE_TIME_DIFF","AVERAGE_FREE_FLOW_TIME",
+                "AVERAGE_TEMPERATURE","AVERAGE_ATMOSP_PRESSURE","AVERAGE_WIND_SPEED","AVERAGE_RAIN","Time","Date","PartsOfDay")
 
 RESPONSE <- c("AVERAGE_SPEED_DIFF")
 
 
 # Grid (Hyperparameter) Search
 gbm_params <- list(
-  ntrees = seq(500,950,50),
-  max_depth = seq(5,20,1),
+  ntrees = seq(300,800,25),
+  max_depth = seq(5,15,1),
   learn_rate = c(0.01,0.02),
   min_rows = c(1,2,5,10),
   sample_rate = seq(0.9,0.99,0.01),
@@ -145,10 +153,10 @@ gbm_params <- list(
 # Early Stopping
 search_criteria <- list(
   strategy = "RandomDiscrete",
-  stopping_metric = "AUTO",
-  stopping_tolerance = 0.001,
+  stopping_metric = "AUC",
+  stopping_tolerance = 0.000001,
   stopping_rounds = 10,
-  max_models = 10
+  max_models = 50
 )
 
 # Gradient Boosting Machine algorithm with grid search
@@ -159,7 +167,7 @@ traffic_gbm_grid <- h2o.grid(
   y = RESPONSE,
   training_frame = h2o.getFrame("TRAIN"),
   validation_frame= h2o.getFrame("VALID"),
-  nfolds = 5,
+  nfolds = 0,
   seed = 99,
   hyper_params = gbm_params,
   search_criteria = search_criteria,
@@ -175,6 +183,7 @@ gbm_grid_performance <- h2o.getGrid(grid_id = "traffic_gbm_grid",
                              sort_by = "accuracy",
                              decreasing = TRUE)
 print(gbm_grid_performance)
+
 
 
 
