@@ -71,12 +71,17 @@ complete_B <- unique(joined_B %>%
 #Merge the two complete dataframes
 complete <- unique(rbind(complete_A, complete_B))
 
+#Convert factors to characters
+i <- sapply(sorted_clean, is.factor)
+sorted_clean[i] <- lapply(sorted_clean[i], as.character)
+
 #Sort by Year, Month, Day, Hour, Minute
 sorted <- complete[order(complete$Year, complete$Month, complete$Day, complete$Hour, complete$Minute),]
 
-#Remove rows from the columns "road_name", "from_road", "to_road", that are NA
-sorted_clean <- sorted[which(!is.na(sorted[,c("road_name", "from_road", "to_road")])),]
+#Remove rows from the columns "road_name", "from_road", "to_road", "Hour", "Minute", "Day", "Month", that are NA
+sorted_clean <- sorted[which(complete.cases(sorted[,c("road_name", "from_road", "to_road", "Hour", "Minute", "Day", "Month")])),]
 rownames(sorted_clean) <- NULL #Update index
+
 
 #Export the generated dataframe
 write.csv(x = sorted_clean, file = "C:/Users/Nuno/Desktop/Traffic_Flow_Speed_Prediction/Datasets/Braga_generated_data.csv", row.names=FALSE, fileEncoding = 'utf-8')
