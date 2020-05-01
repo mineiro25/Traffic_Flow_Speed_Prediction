@@ -40,46 +40,54 @@ tempo <- within(weather,{
 })
 
 #Truncate Minute values
-teste[which(teste[,"Minute"] < 20), "Minute"] <- 0
-teste[which(20<=teste$Minute & teste$Minute<40),"Minute"] <- 20
-teste[which(40<=teste$Minute & teste$Minute<60),"Minute"] <- 40
+teste[which(teste[,"Minute"] < 10), "Minute"] <- 0
+teste[which(10<=teste$Minute & teste$Minute<20),"Minute"] <- 10
+teste[which(20<=teste$Minute & teste$Minute<30),"Minute"] <- 20
+teste[which(30<=teste$Minute & teste$Minute<40),"Minute"] <- 30
+teste[which(40<=teste$Minute & teste$Minute<50),"Minute"] <- 40
+teste[which(50<=teste$Minute & teste$Minute<60),"Minute"] <- 50
 
-testeIncidents[which(testeIncidents[,"Minute"] < 20), "Minute"] <- 0
-testeIncidents[which(20<=testeIncidents$Minute & testeIncidents$Minute<40),"Minute"] <- 20
-testeIncidents[which(40<=testeIncidents$Minute & testeIncidents$Minute<60),"Minute"] <- 40
+testeIncidents[which(testeIncidents[,"Minute"] < 10), "Minute"] <- 0
+testeIncidents[which(10<=testeIncidents$Minute & testeIncidents$Minute<20),"Minute"] <- 10
+testeIncidents[which(20<=testeIncidents$Minute & testeIncidents$Minute<30),"Minute"] <- 20
+testeIncidents[which(30<=testeIncidents$Minute & testeIncidents$Minute<40),"Minute"] <- 30
+testeIncidents[which(40<=testeIncidents$Minute & testeIncidents$Minute<50),"Minute"] <- 40
+testeIncidents[which(50<=testeIncidents$Minute & testeIncidents$Minute<60),"Minute"] <- 50
 
-tempo[which(tempo[,"Minute"] < 20), "Minute"] <- 0
-tempo[which(20<=tempo$Minute & tempo$Minute<40),"Minute"] <- 20
-tempo[which(40<=tempo$Minute & tempo$Minute<60),"Minute"] <- 40
-
-
-#Merge dataframes and filter by road, if it is equal to to_road or from_road
-joined_A <- merge.data.frame(teste,testeIncidents, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE) %>%
-  filter( mapply(function(x, y) grepl(tolower(x), tolower(y), fixed = TRUE), road_name, to_road) )
-
-joined_B <- merge.data.frame(teste,testeIncidents, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE) %>%
-  filter( mapply(function(x, y) grepl(tolower(x), tolower(y), fixed = TRUE), road_name, from_road) )
+tempo[which(tempo[,"Minute"] < 10), "Minute"] <- 0
+tempo[which(10<=tempo$Minute & tempo$Minute<20),"Minute"] <- 10
+tempo[which(20<=tempo$Minute & tempo$Minute<30),"Minute"] <- 20
+tempo[which(30<=tempo$Minute & tempo$Minute<40),"Minute"] <- 30
+tempo[which(40<=tempo$Minute & tempo$Minute<50),"Minute"] <- 40
+tempo[which(50<=tempo$Minute & tempo$Minute<60),"Minute"] <- 50
 
 
 #Merge dataframe with weather data
-complete_A <- unique(joined_A %>%
-  full_join(tempo, by = c("Hour" = "Hour", "Year"="Year", "Month"="Month", "Day"="Day", "Minute"="Minute")))
+teste_weather <- unique(merge.data.frame(teste, tempo, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE))
 
-complete_B <- unique(joined_B %>%
-  full_join(tempo, by = c("Hour" = "Hour", "Year"="Year", "Month"="Month", "Day"="Day", "Minute"="Minute")))
 
-#Merge the two complete dataframes
-complete <- unique(rbind(complete_A, complete_B))
+#Merge dataframes and filter by road, if it is equal to to_road or from_road
+complete <- unique(merge.data.frame(teste_weather,testeIncidents, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE))
+
+#Retrieving the columns names that are related with the accidents
+col <- names(testeIncidents)[1:12]
+#Get the row number, that are from rows not related with accidents
+lin <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), complete$road_name, complete$from_road))
+lin_2 <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), complete$road_name, complete$to_road))
+
+#Replace values with NA
+complete[lin, col] <- NA
+complete[lin_2, col] <- NA
 
 #Convert factors to characters
-i <- sapply(sorted_clean, is.factor)
-sorted_clean[i] <- lapply(sorted_clean[i], as.character)
+i <- sapply(complete, is.factor)
+complete[i] <- lapply(complete[i], as.character)
 
 #Sort by Year, Month, Day, Hour, Minute
 sorted <- complete[order(complete$Year, complete$Month, complete$Day, complete$Hour, complete$Minute),]
 
-#Remove rows from the columns "road_name", "from_road", "to_road", "Hour", "Minute", "Day", "Month", that are NA
-sorted_clean <- sorted[which(complete.cases(sorted[,c("road_name", "from_road", "to_road", "Hour", "Minute", "Day", "Month")])),]
+#Remove rows from the columns "road_name", "Hour", "Minute", "Day", "Month", that are NA
+sorted_clean <- unique(sorted[which(complete.cases(sorted[,c("road_name", "Hour", "Minute", "Day", "Month")])),])
 rownames(sorted_clean) <- NULL #Update index
 
 
