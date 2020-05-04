@@ -67,17 +67,32 @@ teste_weather <- unique(merge.data.frame(teste, tempo, by = c("Hour", "Year", "M
 
 
 #Merge dataframes and filter by road, if it is equal to to_road or from_road
-complete <- unique(merge.data.frame(teste_weather,testeIncidents, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE))
+merged <- unique(merge.data.frame(teste_weather,testeIncidents, by = c("Hour", "Year", "Month", "Day", "Minute"), all = TRUE))
 
 #Retrieving the columns names that are related with the accidents
 col <- names(testeIncidents)[1:12]
-#Get the row number, that are from rows not related with accidents
-lin <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), complete$road_name, complete$from_road))
-lin_2 <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), complete$road_name, complete$to_road))
 
-#Replace values with NA
-complete[lin, col] <- NA
-complete[lin_2, col] <- NA
+#Get the row number, that are from rows not related with accidents
+lin <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), merged$road_name, merged$from_road))
+lin_2 <- which(mapply(function(x, y) !grepl(tolower(x), tolower(y), fixed = TRUE), merged$road_name, merged$to_road))
+#Concat vectors
+no_acc <- unique(c(lin, lin_2))
+
+#Get the row number, that are from rows related with accidents
+acc <- which(mapply(function(x, y) grepl(tolower(x), tolower(y), fixed = TRUE), merged$road_name, merged$from_road))
+acc_2 <- which(mapply(function(x, y) grepl(tolower(x), tolower(y), fixed = TRUE), merged$road_name, merged$to_road))
+#Concat vectors
+accs <- unique(c(acc, acc_2))
+
+#Build the no accidents dataframe
+no_accidents <- merged[no_acc,]
+no_accidents[,col] <- NA
+
+#Build the accidents dataframe
+accidents <- merged[accs,]
+
+#Concat the two dataframes
+complete <- unique(rbind.data.frame(no_accidents, accidents))
 
 #Convert factors to characters
 i <- sapply(complete, is.factor)
