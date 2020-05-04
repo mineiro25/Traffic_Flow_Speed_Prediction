@@ -102,7 +102,7 @@ complete[i] <- lapply(complete[i], as.character)
 sorted <- complete[order(complete$Year, complete$Month, complete$Day, complete$Hour, complete$Minute),]
 
 #Remove rows from the columns "road_name", "Hour", "Minute", "Day", "Month", that are NA
-sorted_clean <- unique(sorted[which(complete.cases(sorted[,c("road_name", "Hour", "Minute", "Day", "Month")])),])
+sorted_clean <- unique(sorted[which(complete.cases(sorted[,c("road_name", "Hour", "Minute", "Day", "Month", "Year")])),])
 rownames(sorted_clean) <- NULL #Update index
 
 
