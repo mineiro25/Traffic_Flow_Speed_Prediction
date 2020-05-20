@@ -1,3 +1,6 @@
+library(ggplot2)
+library(plyr)
+library(dplyr)
 
 dataset <- read.csv("C:/Users/Nuno/Desktop/Traffic_Flow_Speed_Prediction/Datasets/Braga_generated_data.csv", encoding = 'utf-8')
 
@@ -9,7 +12,7 @@ col <- names(dataset)[nums]
 
 for(j in  col){
   #Build path for each column
-  pathWithName <- paste("C:/Users/Nuno/Desktop/Traffic_Flow_Speed_Prediction/Graphs/",j, sep="")
+  pathWithName <- paste("C:/Users/Nuno/Desktop/Traffic_Flow_Speed_Prediction/Graphs/Boxplots/",j, sep="")
   finalPath <- paste(pathWithName, ".png", sep = "")
   
   #Indicates which type of file is being stored
